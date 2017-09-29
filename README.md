@@ -10,7 +10,7 @@ Users should have the below softwares installed on their machine
   * Oracle VM VirtualBox(latest version)
   * Git
   * GitHub account and read only access to **ascent-ext-configs** repository. Other repositories are publicly available
-  * Personal Access Token to connect to GitHub: [Creating Personal Access Token](#creating-personal-access-token-to-connect-to-github)
+  * Personal Access Token to connect to GitHub: [Creating Personal Access Token](https://github.com/department-of-veterans-affairs/ascent-platform/wiki/Ascent-Quick-Start-Guide#creating-personal-access-token-to-connect-to-github)
 
 ### Software installed at the end of vagrant run
   * Apache Maven 3.3.9
