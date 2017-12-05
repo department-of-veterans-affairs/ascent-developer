@@ -10,7 +10,7 @@ Users should have the below softwares installed on their machine
   * Oracle VM VirtualBox(latest version)
   * Git
   * GitHub account and read only access to **ascent-ext-configs** repository. Other repositories are publicly available
-  * Personal Access Token to connect to GitHub: [Creating Personal Access Token](https://github.com/department-of-veterans-affairs/ascent-platform/wiki/Ascent-Quick-Start-Guide#creating-personal-access-token-to-connect-to-github)
+  * Personal Access Token to connect to GitHub: [Creating Personal Access Token](https://github.com/department-of-veterans-affairs/ascent-platform/wiki/DEV-:-Platform-Quick-Start-Guide#creating-personal-access-token-to-connect-to-github)
 
 ### Software installed at the end of vagrant run
   * Apache Maven 3.3.9
@@ -51,7 +51,7 @@ Users should have the below softwares installed on their machine
       service
     2. To perform GIT operations using HTTPS for any private repositories
 
-    Follow the steps on page [Create Personal Access Token](https://github.com/department-of-veterans-affairs/ascent-platform/wiki/Ascent-Quick-Start-Guide#creating-personal-access-token-to-connect-to-github)
+    Follow the steps on page [Create Personal Access Token](https://github.com/department-of-veterans-affairs/ascent-platform/wiki/DEV-:-Platform-Quick-Start-Guide#creating-personal-access-token-to-connect-to-github)
 
 * Caching the personal access token in Linux 
 
@@ -65,7 +65,7 @@ Users should have the below softwares installed on their machine
 
 ## Build and Test
 
-Follow all the instructions on this page: [Build and Test Projects](https://github.com/department-of-veterans-affairs/ascent-sample/wiki/Ascent-Sample-Quick-Start-Guide#build-and-test)
+Follow all the instructions on this page: [Build and Test Projects](https://github.com/department-of-veterans-affairs/ascent-sample/wiki/DEV-:-Quick-Start-Guide-for-Ascent-Sample#build-and-test)
 
 **The below steps don't have to be followed anymore** because we are using https connection to github. Follow these steps 
 ## ONLY IF YOU WANT TO USE GIT COMMAND TO CLONE REPOSITORIES using SSH Connection
