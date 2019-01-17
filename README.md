@@ -18,4 +18,4 @@ Currently, the following are available:
 "Versions" combs the POM files for all explicit artifact versions in all projects.
 * Set properties as necessary in `src/main/resources/versions.properties`.
 * Your local environment must have a GIT\_HOME environment variable (e.g. `export GIT_HOME=/Users/MyAccount/git`) in which the Ascent projects have been cloned.
-* To run the program from GIT\_HOME directory:<br/>`$ cd $GIT\_HOME`<br/>`$ java -cp target/ascent-developer.jar gov.va.ascent.tools.Versions .`
+* To run the program from GIT\_HOME directory:<br/>`$ cd $GIT_HOME`<br/>`$ java -cp target/ascent-developer.jar gov.va.ascent.tools.Versions .`
