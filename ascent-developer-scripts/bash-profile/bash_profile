@@ -116,8 +116,7 @@ eval eval "$setJavaUse"
 #echo "ran evaluation of $setJavaUse"
 
 # git
-### export GIT_ACCESS_TOKEN=7a7cb38bc26124734e5ec53c2ce61594271e0f58
-export GIT_ACCESS_TOKEN=a68f06a11c647ab82398ca4cbd1a1f457aa4bb21
+export GIT_ACCESS_TOKEN=REPLACE_ME_WITH_YOUR_GITHUB_TOKEN
 export GIT_HOME=$HOME/git
 #echo "exported GIT vars"
 
