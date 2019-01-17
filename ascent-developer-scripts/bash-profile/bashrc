@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# https://www.linuxnix.com/linuxunix-shell-ps1-prompt-explained-in-detail/
+DEFAULT_PS1=$PS1
+PS1="\[\033[33m\]\A \[\033[36m\]\w \[\033[37m\]\$\[\033[00m\] "
+
+# ðºð¸
+# Flag of United States of America
+# Unicode: U+1F1FA U+1F1F8, UTF-8: F0 9F 87 BA F0 9F 87 B8
