@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
 >
 	<modelVersion>4.0.0</modelVersion>
@@ -32,6 +31,7 @@
 	<build>
 		<finalName>${project.artifactId}</finalName>
 		<resources>
+			<!-- resources to include and exclude in the jar -->
 			<resource>
 				<directory>src/main/resources</directory>
 				<filtering>true</filtering>
@@ -43,8 +43,10 @@
 				</excludes>
 			</resource>
 		</resources>
+
 		<plugins>
 			<plugin>
+				<!-- maven 3 requires java version, otherwise defaults to old v1.5 -->
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
@@ -52,7 +54,9 @@
 					<target>${java.version}</target>
 				</configuration>
 			</plugin>
+
 			<plugin>
+				<!-- javadoc build directives -->
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
 				<configuration>
@@ -66,6 +70,24 @@
 						<goals>
 							<goal>jar</goal>
 						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<!-- tell maven to include dependencies in the JAR -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>include-dependencies</id>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<shadedArtifactAttached>false</shadedArtifactAttached>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>

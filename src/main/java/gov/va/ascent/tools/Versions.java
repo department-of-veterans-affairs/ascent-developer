@@ -2,9 +2,6 @@ package gov.va.ascent.tools;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -101,10 +98,11 @@ public class Versions {
 
 	private void readProperties() {
 		Properties props = new Properties();
-		try (InputStream in = Files.newInputStream(
-				Paths.get(ClassLoader.getSystemResource(PROPERTIES_FILENAME).toURI()))) {
+//		try (InputStream in = Files.newInputStream(Paths.get(ClassLoader.getSystemResource(PROPERTIES_FILENAME).toURI()))) {
+		try (InputStream in = this.getClass().getResourceAsStream("/" + PROPERTIES_FILENAME);) {
+
 			props.load(in);
-		} catch (IOException | URISyntaxException e) {
+		} catch (IOException e) { // | URISyntaxException e) {
 			throw new RuntimeException("While reading versions.properties", e);
 		}
 
