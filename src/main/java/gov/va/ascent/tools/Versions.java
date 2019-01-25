@@ -15,6 +15,7 @@ import org.apache.commons.lang3.StringUtils;
 import gov.va.ascent.tools.utils.Out;
 import gov.va.ascent.tools.utils.Severity;
 import gov.va.ascent.tools.versions.PomVersionsParser;
+import gov.va.ascent.tools.versions.Reporter;
 import gov.va.ascent.tools.versions.model.Version;
 
 /**
@@ -29,27 +30,18 @@ import gov.va.ascent.tools.versions.model.Version;
  */
 public class Versions {
 
-	/** Constant for space character */
-	private static final String SPACE = " ";
-	/** Constant for desired max line length */
-	private static final int LINELEN = 79;
+	/** Name of the properties file on the classpath - backlash required */
+	private static final String PROPERTIES_FILENAME = "/versions.properties";
 	/** Property name for the nexus project base url */
 	private static final String PROPS_NEXUS = "versions.nexus.base-projects-url";
-	/** Property name for the report output file */
-	private static final String PROPS_REPORTFILE = "versions.report.output-file";
 	/** Property name for any second level projects to be processed */
 	private static final String PROPS_2NDLEVEL = "versions.projects.second-level";
-
-	/** Name of the properties file on the classpath */
-	private static final String PROPERTIES_FILENAME = "versions.properties";
 
 	/** The path to the git directory */
 	private String gitHomePath;
 
 	/** The base Nexus URL for Ascent and VetServices projects */
 	String nexusUrl;
-	/** The name of the report file */
-	String reportFile = "VersionsReport.txt";
 	/** The names of additional projects to process */
 	Map<String, List<String>> extraProjects = new HashMap<>();
 
@@ -70,18 +62,21 @@ public class Versions {
 	 * @param args - arguments passed in from the command line
 	 */
 	public static void main(String[] args) {
+//		gov.va.ascent.tools.utils.SystemUtils.printSystemProperties();
 		new Versions().runMe();
 	}
 
 	/**
 	 * Entry point for running the program in the instantiated Versions object.
+	 *
+	 * @throws IOException
 	 */
 	private void runMe() {
 		readGitHomePath();
 		readProperties();
-		versions = new PomVersionsParser(this.versions, this.extraProjects, this.gitHomePath)
+		versions = new PomVersionsParser(this.versions, this.extraProjects, this.gitHomePath, this.nexusUrl)
 				.processProjectDirectories();
-		printReport();
+		Reporter.buildReport(this.versions, this.gitHomePath);
 	}
 
 	/**
@@ -98,70 +93,33 @@ public class Versions {
 
 	private void readProperties() {
 		Properties props = new Properties();
-//		try (InputStream in = Files.newInputStream(Paths.get(ClassLoader.getSystemResource(PROPERTIES_FILENAME).toURI()))) {
-		try (InputStream in = this.getClass().getResourceAsStream("/" + PROPERTIES_FILENAME);) {
-
+		// using getResourceAsStream instead of Files.newInputStream
+		// because Files.newInputStream does not instantiate a ZipFileSystemProvider to read from inside a JAR
+		try (InputStream in = this.getClass().getResourceAsStream(PROPERTIES_FILENAME)) {
 			props.load(in);
-		} catch (IOException e) { // | URISyntaxException e) {
+		} catch (IOException e) {
 			throw new RuntimeException("While reading versions.properties", e);
 		}
 
-		nexusUrl = props.getProperty(PROPS_NEXUS);
+		nexusUrl = props.getProperty(PROPS_NEXUS).trim();
 		if (StringUtils.isBlank(nexusUrl)) {
 			throw new RuntimeException("Cannot have empty " + PROPS_NEXUS + " property in versions.properties.");
 		}
-		reportFile = props.getProperty(PROPS_REPORTFILE) == null ? reportFile : props.getProperty(PROPS_REPORTFILE);
 
-		String secondLevel = props.getProperty(PROPS_2NDLEVEL);
+		String secondLevel = props.getProperty(PROPS_2NDLEVEL).trim();
 		if (!StringUtils.isBlank(secondLevel)) {
 			String[] chunks = secondLevel.split(",");
 			if (chunks != null) {
 				for (String chunk : chunks) {
+					chunk = chunk.trim();
 					String[] projectChunks = chunk.split("\\[");
-					String baseProject = projectChunks[0];
-					String[] subProjects = projectChunks[1].replaceAll("]", "").split("\\|");
+					String baseProject = projectChunks[0].trim();
+					String[] subProjects = projectChunks[1].trim().replaceAll("]", "").split("\\|");
+					for (int i = 0; i < subProjects.length; i++) {
+						subProjects[i] = subProjects[i].trim();
+					}
 
 					extraProjects.put(baseProject, Arrays.asList(subProjects));
-				}
-			}
-		}
-	}
-
-	private void printReport() {
-		Out.println("");
-		Out.println(StringUtils.repeat("=", LINELEN));
-		Out.println("Version Report for " + gitHomePath);
-
-		versions.forEach(this::printVersion);
-		Out.println("");
-	}
-
-	/**
-	 * Print report rows of the collected version info for a specific project.
-	 *
-	 * @param projectPath - disc path to the project
-	 * @param rootElement - the &lt;project&gt; element
-	 */
-	private void printVersion(String projectPath, Version rootElement) {
-		Out.println("");
-		Out.println(StringUtils.repeat("-", LINELEN));
-
-		if (rootElement != null) {
-			Out.println(rootElement.getArtifactId() + SPACE + rootElement.getVersion());
-			if (rootElement.getParent() != null) {
-				Version parent = rootElement.getParent();
-				Out.println(1,
-						(parent.getHierarchyIdTag() == null ? "" : parent.getHierarchyIdTag().getOutputPrefix())
-								+ parent.getArtifactId()
-								+ SPACE + parent.getVersion());
-			}
-			if (rootElement.getDependencies() != null) {
-				for (Version dep : rootElement.getDependencies()) {
-					if (dep != null) {
-						Out.println(1,
-								(dep.getHierarchyIdTag() == null ? "" : dep.getHierarchyIdTag().getOutputPrefix())
-										+ dep.getArtifactId() + SPACE + dep.getVersion());
-					}
 				}
 			}
 		}

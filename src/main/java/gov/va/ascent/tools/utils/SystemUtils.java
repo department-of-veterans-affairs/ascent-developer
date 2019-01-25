@@ -32,7 +32,7 @@ public class SystemUtils {
 	/**
 	 * Print all {@code Ssystem.getProperties()} variables to the console.
 	 */
-	public static void printProperties() {
+	public static void printSystemProperties() {
 		Properties props = System.getProperties();
 
 		int longestKey = 0;

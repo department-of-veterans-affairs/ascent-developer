@@ -17,6 +17,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.client.ClientProtocolException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -42,6 +43,22 @@ public class PomVersionsParser {
 	private Map<String, List<String>> extraProjects;
 	/** The value of system GIT_HOME environment variable */
 	private String gitHomePath;
+	/** The versions.nexus.base-projects-url value from versions.properties */
+	private String nexusBaseProjectsUrl;
+
+	private List<PomVersionsParser.Message> messages = new ArrayList<>();
+
+	private class Message {
+		Severity severity;
+		String message;
+		Throwable t;
+
+		Message(Severity severity, String message, Throwable t) {
+			this.severity = severity;
+			this.message = message;
+			this.t = t;
+		}
+	}
 
 	/**
 	 * Processes POM files from projects found directly under the GIT_HOME directory,
@@ -50,11 +67,14 @@ public class PomVersionsParser {
 	 * @param versions - the map in which to put version information for the caller
 	 * @param extraProjects - any sub-projects that need to report version information
 	 * @param gitHomePath - the value of system GIT_HOME environment variable
+	 * @param nexusBaseProjectsUrl - versions.nexus.base-projects-url value from versions.properties
 	 */
-	public PomVersionsParser(Map<String, Version> versions, Map<String, List<String>> extraProjects, String gitHomePath) {
+	public PomVersionsParser(Map<String, Version> versions, Map<String, List<String>> extraProjects, String gitHomePath,
+			String nexusBaseProjectsUrl) {
 		this.versions = versions;
 		this.extraProjects = extraProjects;
 		this.gitHomePath = gitHomePath;
+		this.nexusBaseProjectsUrl = nexusBaseProjectsUrl;
 	}
 
 	/**
@@ -64,19 +84,29 @@ public class PomVersionsParser {
 	 */
 	public Map<String, Version> processProjectDirectories() {
 		Path path = Paths.get(gitHomePath);
+		Out.print("Parsing data from POMs .");
 		// process each directory entry immediately under GIT_HOME
 		try (Stream<Path> stream = Files.list(path)) {
 			stream.filter(path1 -> path1.toFile().isDirectory())
-					.forEach(t -> {
+					.forEach(projPath -> {
 						try {
-							processProject(t); // do it
+							processProject(projPath); // do it
 						} catch (ParserConfigurationException | SAXException | IOException e) {
-							Out.println(0, Severity.ERROR, "While processing project \"" + t.normalize().toString() + "\"", e);
+							messages.add(
+									new Message(Severity.ERROR, "While processing project \"" + projPath.normalize().toString() + "\"",
+											e));
 						}
+						Out.print(".");
 					});
 
-		} catch (IOException e) {
-			Out.println(0, Severity.ERROR, "While getting stream for \"" + path.toAbsolutePath().normalize().toString() + "\"", e);
+		} catch (Exception e) {
+			messages.add(new Message(Severity.ERROR,
+					"While getting stream for \"" + path.toAbsolutePath().normalize().toString() + "\"", e));
+		}
+		Out.println(".");
+		Out.println("Messages:");
+		for (PomVersionsParser.Message msg : messages) {
+			Out.println(0, msg.severity, msg.message, msg.t);
 		}
 		return versions;
 	}
@@ -102,11 +132,11 @@ public class PomVersionsParser {
 			Element rootElement = doc.getDocumentElement();
 			rootElement.normalize();
 
-			Version project = getVersion(null, rootElement);
+			Version project = getVersion(projectPath, null, rootElement);
 			if (project != null) {
-				project.setParent(getParent(rootElement));
-				project.getDependencies().addAll(getDependencies(null, rootElement));
-				project.getDependencies().addAll(getManagedDependencies(rootElement));
+				project.setParent(getParent(projectPath, rootElement));
+				project.getDependencies().addAll(getDependencies(projectPath, null, rootElement));
+				project.getDependencies().addAll(getManagedDependencies(projectPath, rootElement));
 
 				versions.put(projectPath.toString(), project);
 
@@ -128,13 +158,13 @@ public class PomVersionsParser {
 				}
 
 			} else {
-				Out.println(0, Severity.WARN,
-						"Could not find <" + rootElement.getNodeName() + "><version> element in " + projectPom.toString());
+				messages.add(new Message(Severity.WARN,
+						"Could not find <" + rootElement.getNodeName() + "><version> element in " + projectPom.toString(), null));
 			}
 
 		} else {
-			Out.println(0, Severity.WARN,
-					"Cannot read pom.xml in " + projectPom.toString());
+			messages.add(new Message(Severity.WARN,
+					"Cannot read pom.xml in " + projectPom.toString(), null));
 		}
 	}
 
@@ -225,8 +255,12 @@ public class PomVersionsParser {
 	 * @param hierarchyIdTag - {@code null} or the non-root parent element
 	 * @param rootElement - the element containing version tags
 	 * @return Version - the version object for the element, or {@code null}
+	 * @throws IOException
+	 * @throws ClientProtocolException
 	 */
-	private Version getVersion(PomTags hierarchyIdTag, Node rootElement) {
+	private Version getVersion(Path projectPath, PomTags hierarchyIdTag, Node rootElement)
+			throws ClientProtocolException, IOException {
+		Path relativePath = projectPath.subpath(Paths.get(gitHomePath).getNameCount(), projectPath.getNameCount());
 		Node groupId = findElement(rootElement.getChildNodes(), PomTags.TAG_GROUP_ID);
 		Node artifactId = findElement(rootElement.getChildNodes(), PomTags.TAG_ARTIFACT_ID);
 		Node version = findElement(rootElement.getChildNodes(), PomTags.TAG_VERSION);
@@ -235,10 +269,16 @@ public class PomVersionsParser {
 		if (version != null) {
 			String text = version.getTextContent();
 			if (!StringUtils.isBlank(text) && Pattern.matches("[0-9]*\\.[0-9]*\\.[0-9]*.*", text)) {
-				ret = new Version(hierarchyIdTag,
+
+				Boolean exists = null; // default value
+				// does this artifact version exist in nexus?
+				exists = ArtifactChecker.exists(nexusBaseProjectsUrl, relativePath, text);
+
+				// create the version object
+				ret = new Version(relativePath, hierarchyIdTag,
 						groupId == null ? "null" : groupId.getTextContent(),
 						artifactId == null ? "null" : artifactId.getTextContent(),
-						text);
+						text, exists);
 			}
 		}
 		return ret;
@@ -249,10 +289,12 @@ public class PomVersionsParser {
 	 *
 	 * @param rootElement - the &lt;parent&gt; element
 	 * @return Version - the version object for the parent
+	 * @throws IOException
+	 * @throws ClientProtocolException
 	 */
-	private Version getParent(Node rootElement) {
+	private Version getParent(Path projectPath, Node rootElement) throws ClientProtocolException, IOException {
 		Node parent = findElement(rootElement.getChildNodes(), PomTags.PARENT.getTagName());
-		return parent == null ? null : getVersion(PomTags.PARENT, parent);
+		return parent == null ? null : getVersion(projectPath, PomTags.PARENT, parent);
 	}
 
 	/**
@@ -297,8 +339,11 @@ public class PomVersionsParser {
 	 * @param hierarchyIdTag - {@code null} or the non-root parent element
 	 * @param rootElement - the &lt;dependencies&gt; element
 	 * @return List&lt;Version&gt; - the version objects for the dependencies, or empty list
+	 * @throws IOException
+	 * @throws ClientProtocolException
 	 */
-	private List<Version> getDependencies(PomTags hierarchyIdTag, Node rootElement) {
+	private List<Version> getDependencies(Path projectPath, PomTags hierarchyIdTag, Node rootElement)
+			throws ClientProtocolException, IOException {
 		List<Version> list = new ArrayList<>();
 
 		Node node = findElement(rootElement.getChildNodes(), PomTags.DEPENDENCIES.getTagName());
@@ -315,7 +360,7 @@ public class PomVersionsParser {
 		}
 
 		for (Node item : nodes) {
-			Version v = getVersion(hierarchyIdTag, item);
+			Version v = getVersion(projectPath, hierarchyIdTag, item);
 			if (v != null) {
 				list.add(v);
 			}
@@ -334,11 +379,13 @@ public class PomVersionsParser {
 	 *
 	 * @param rootElement - the &lt;dependencyManagement&gt; element
 	 * @return List&lt;Version&gt; - the version objects for the dependencies, or empty list
+	 * @throws IOException
+	 * @throws ClientProtocolException
 	 */
-	private List<Version> getManagedDependencies(Node rootElement) {
+	private List<Version> getManagedDependencies(Path projectPath, Node rootElement) throws ClientProtocolException, IOException {
 		Node node = findElement(rootElement.getChildNodes(), PomTags.DEPENDENCY_MANAGEMENT.getTagName());
 		if (node != null) {
-			return getDependencies(PomTags.fromTagName(node.getNodeName()), node);
+			return getDependencies(projectPath, PomTags.fromTagName(node.getNodeName()), node);
 		}
 		return new ArrayList<Version>();
 	}

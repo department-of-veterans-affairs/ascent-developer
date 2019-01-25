@@ -1,7 +1,10 @@
 package gov.va.ascent.tools.versions.model;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+
+import gov.va.ascent.tools.versions.RevisionParser;
 
 /**
  * Data model object for explicit version references found in project pom.xml files.
@@ -10,13 +13,27 @@ import java.util.List;
  */
 public class Version {
 
-	PomTags hierarchyIdTag;
-	String groupId;
-	String artifactId;
-	String version;
+	/** the relative path of the project from GIT_HOME, e.g. vetservices-refdata */
+	private Path projectPath;
 
-	Version parent;
-	List<Version> dependencies = new ArrayList<>();
+	/** {@code null} or the non-root parent element from the POM */
+	private PomTags hierarchyIdTag;
+	/** the groupId for the artifact version from the POM */
+	private String groupId;
+	/** the artifactId for the artifact version from the POM */
+	private String artifactId;
+	/** the explicit version declared for the artifact from the POM */
+	private String version;
+	/** the {@link Revision} information for the version */
+	private Revision revision;
+
+	/** {@code true} if the artifact exists in nexus */
+	private Boolean exists;
+
+	/** A Version object for the parent project */
+	private Version parent;
+	/** A non-null list of Version objects for project dependencies */
+	private List<Version> dependencies = new ArrayList<>();
 
 	/**
 	 * Create an empty Version data model object.
@@ -28,7 +45,16 @@ public class Version {
 	/**
 	 * Create a populated Version data model object for one row of console output.
 	 * <p>
-	 * The hierarchyIdTag should be {@code null} or populated with a meaningful tag from a parent tag in the hierarchy.
+	 * The {@code projectPath} parameter must be the relative path of the project from GIT_HOME,
+	 * not the absolute path.
+	 * Examples:
+	 * <ul>
+	 * <li>{@code $GIT_HOME/vetservices-refdata} must be passed as {@code vetservices-refdata}<br/>
+	 * <li>{@code $GIT_HOME/ascent-platform/ascent-platform-parent} must be passed as {@code ascent-platform/ascent-platform-parent}
+	 * </ul>
+	 * <p>
+	 * The {@code hierarchyIdTag} parameter should be {@code null} or populated with a meaningful tag from the POMs parent tag in the
+	 * hierarchy.
 	 * The intent is to clearly identify the origin of the version information.
 	 * Typically, this will be the tag closest to the root &lt;project&gt; tag.
 	 * For example, hierarchyIdTag should be:
@@ -63,16 +89,49 @@ public class Version {
 	 * </table>
 	 * </ul>
 	 *
-	 * @param hierarchyIdTag - {@code null} or the non-root parent element
+	 * @param projectPath - the relative path from GIT_HOME for the project
+	 * @param hierarchyIdTag - {@code null} or the non-root parent element from the POM
 	 * @param groupId - the groupId for the artifact version
 	 * @param artifactId - the artifactId for the artifact version
-	 * @param version - the version of the artifact
+	 * @param version - the explicit version declared for the artifact
 	 */
-	public Version(PomTags hierarchyIdTag, String groupId, String artifactId, String version) {
+	public Version(Path projectPath, PomTags hierarchyIdTag, String groupId, String artifactId, String version, Boolean exists) {
 		this.hierarchyIdTag = hierarchyIdTag;
 		this.groupId = groupId;
 		this.artifactId = artifactId;
 		this.version = version;
+		this.exists = exists;
+		this.revision = RevisionParser.parseRevision(version);
+	}
+
+	/**
+	 * The {@code projectPath} parameter must be the relative path of the project from GIT_HOME,
+	 * not the absolute path.
+	 * Examples:
+	 * <ul>
+	 * <li>{@code $GIT_HOME/vetservices-refdata} must be passed as {@code vetservices-refdata}<br/>
+	 * <li>{@code $GIT_HOME/ascent-platform/ascent-platform-parent} must be passed as {@code ascent-platform/ascent-platform-parent}
+	 * </ul>
+	 *
+	 * @return Path - the relative path of the project
+	 */
+	public Path getProjectPath() {
+		return projectPath;
+	}
+
+	/**
+	 * The {@code projectPath} parameter must be the relative path of the project from GIT_HOME,
+	 * not the absolute path.
+	 * Examples:
+	 * <ul>
+	 * <li>{@code $GIT_HOME/vetservices-refdata} must be passed as {@code vetservices-refdata}<br/>
+	 * <li>{@code $GIT_HOME/ascent-platform/ascent-platform-parent} must be passed as {@code ascent-platform/ascent-platform-parent}
+	 * </ul>
+	 *
+	 * @param projectPath - the relative path of the project
+	 */
+	public void setProjectPath(Path projectPath) {
+		this.projectPath = projectPath;
 	}
 
 	/**
@@ -87,7 +146,7 @@ public class Version {
 
 	/**
 	 * The hierarchyIdTag should be {@code null} for root &lt;project&gt; version info,
-	 * or populated with a meaningful tag from a parent tag in the hierarchy.
+	 * or populated with a meaningful tag from the POMs parent tag in the hierarchy.
 	 * The intent is to clearly identify the origin of the version information.
 	 * Typically, this will be the tag closest to the root &lt;project&gt; tag.
 	 * For example, hierarchyIdTag should be:
@@ -165,7 +224,7 @@ public class Version {
 	}
 
 	/**
-	 * The &lt;version&gt; of the artifact.
+	 * The explicit &lt;version&gt; declared for the artifact.
 	 *
 	 * @return the version
 	 */
@@ -174,12 +233,21 @@ public class Version {
 	}
 
 	/**
-	 * The &lt;version&gt; of the artifact.
+	 * The explicit &lt;version&gt; declared for the artifact.
 	 *
 	 * @param version the version to set
 	 */
 	public void setVersion(String version) {
 		this.version = version;
+	}
+
+	/**
+	 * The decomposed &lt;version&gt; as a {@link Revision} object.
+	 *
+	 * @return the revision
+	 */
+	public Revision getRevision() {
+		return revision;
 	}
 
 	/**
@@ -210,5 +278,28 @@ public class Version {
 	 */
 	public List<Version> getDependencies() {
 		return dependencies;
+	}
+
+	/**
+	 * Does the artifact version exist in nexus?
+	 * <ul>
+	 * <li>{@code null} = unknown or not applicable (e.g. subprojects)
+	 * <li>{@code true} = artifact directory exists in nexus
+	 * <li>{@code false} = artifact directory not found in nexus
+	 * </ul>
+	 *
+	 * @return true if artifact version exists in nexus
+	 */
+	public Boolean exists() {
+		return exists;
+	}
+
+	/**
+	 * Does the artifact version exist in nexus
+	 *
+	 * @param exists - if artifact version exists in nexus
+	 */
+	public void setExists(Boolean exists) {
+		this.exists = exists;
 	}
 }

@@ -3,6 +3,7 @@ package gov.va.ascent.tools.utils;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 
 /**
  * Utility class for console interactions.
@@ -22,59 +23,85 @@ public class Out {
 	 *
 	 * @param message the message to print
 	 */
-	public static void println(String message) {
-		println(0, null, message, null);
+	public static String println(String message) {
+		return println(null, 0, null, message, null);
 	}
 
-	public static void println(int tabs, String message) {
-		println(tabs, null, message, null);
+	public static String println(int tabs, String message) {
+		return println(null, tabs, null, message, null);
 	}
 
-	public static void println(int tabs, Severity severity, String message) {
-		println(tabs, severity, message, null);
+	public static String println(int tabs, Severity severity, String message) {
+		return println(null, tabs, severity, message, null);
 	}
 
-	public static void println(int tabs, Severity severity, String message, Throwable t) {
-		System.out.println(
-				(tabs < 1 ? "" : StringUtils.repeat(" ", tabs * TAB_LEN))
-						+ (severity == null ? "" : severity.toString() + ": ")
-						+ (message == null ? "" : message));
-		if (t != null) {
-			t.printStackTrace();
-		}
+	public static String println(String indicator, int tabs, String message) {
+		return println(indicator, tabs, null, message, null);
 	}
 
-	public static void printlns(List<String> messages) {
-		printlns(0, null, messages);
+	public static String println(String indicator, int tabs, Severity severity, String message) {
+		return println(indicator, tabs, severity, message, null);
 	}
 
-	public static void printlns(int tabs, List<String> messages) {
-		printlns(tabs, null, messages);
+	public static String println(int tabs, Severity severity, String message, Throwable t) {
+		return println(null, tabs, severity, message, t);
 	}
 
-	public static void printlns(int tabs, Severity severity, List<String> messages) {
+	public static String println(String indicator, int tabs, Severity severity, String message, Throwable t) {
+		String throwable = t == null ? null : ExceptionUtils.getStackTrace(t);
+		String output = (indicator == null ? "" : indicator)
+				+ (tabs < 1 ? "" : StringUtils.repeat(" ", tabs * TAB_LEN))
+				+ (severity == null ? "" : severity.toString() + ": ")
+				+ (message == null ? "" : message)
+				+ (throwable == null ? "" : "\\n" + throwable);
+
+		System.out.println(output);
+		return output;
+	}
+
+	public static String printlns(List<String> messages) {
+		return printlns(0, null, messages);
+	}
+
+	public static String printlns(int tabs, List<String> messages) {
+		return printlns(tabs, null, messages);
+	}
+
+	public static String printlns(int tabs, Severity severity, List<String> messages) {
+		String outputs = "";
 		if (messages != null && messages.size() > 0) {
 			for (String message : messages) {
-				System.out.println(
-						(tabs < 1 ? "" : StringUtils.repeat(" ", tabs * TAB_LEN))
-								+ (severity == null ? "" : severity.toString() + ": ")
-								+ (message == null ? "" : message));
+				String output = (tabs < 1 ? "" : StringUtils.repeat(" ", tabs * TAB_LEN))
+						+ (severity == null ? "" : severity.toString() + ": ")
+						+ (message == null ? "" : message);
+
+				outputs += (outputs.isEmpty() ? "" : "\\n") + output;
+				System.out.println(output);
 			}
 		}
+		return outputs;
 	}
 
-	public static void print(String message) {
-		print(0, null, message);
+	public static String print(String message) {
+		return print(null, 0, null, message);
 	}
 
-	public static void print(int tabs, String message) {
-		print(tabs, null, message);
+	public static String print(int tabs, String message) {
+		return print(null, tabs, null, message);
 	}
 
-	public static void print(int tabs, Severity severity, String message) {
-		System.out.print(
-				(tabs < 1 ? "" : StringUtils.repeat(" ", tabs * TAB_LEN))
+	public static String print(int tabs, Severity severity, String message) {
+		return print(null, tabs, null, message);
+	}
+
+	public static String print(String indicator, int tabs, Severity severity, String message) {
+		String output =
+				(indicator == null ? "" : indicator)
+						+ (tabs < 1 ? "" : StringUtils.repeat(" ", tabs * TAB_LEN))
 						+ (severity == null ? "" : severity.toString() + ": ")
-						+ (message == null ? "" : message));
+						+ (message == null ? "" : message);
+
+		System.out.print(output);
+		return output;
 	}
 }

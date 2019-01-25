@@ -14,7 +14,7 @@ public enum PomTags {
 	/** The &lt;dependencies&gt; tag */
 	DEPENDENCIES("dependencies", 1, "dependency:  "),
 	/** The &lt;dependencyManagement&gt; tag */
-	DEPENDENCY_MANAGEMENT("dependencyManagement", 2, "managed: ");
+	DEPENDENCY_MANAGEMENT("dependencyManagement", 2, "managed:     ");
 
 	/** The tag name for &lt;groupId&gt; */
 	public static final String TAG_GROUP_ID = "groupId";
