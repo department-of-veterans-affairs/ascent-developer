@@ -1,147 +1,180 @@
 #!/bin/sh
 
-## turn on to assist debugging ##
+### uncomment below to assist debugging ###
 #export PS4='[$LINENO] '
 #set -x
-##
-
-######################################################
-## JAVA PROFILES THAT YOU CAN CHOOSE FROM           ##
-java_jdk8="jdk8"
-######################################################
-## CHANGE $java_???* TO THE JAVA VERSION DESIRED ##
-java_use="$java_jdk8"
-##  CHANGE VERSION IF USING java_custom OPTION   ##
-java_custom_version="1.8"
-######################################################
+### ----------------------------------- ###
 
 function showaliases() {
 	echo ""
 	echo "Available aliases:"
-	echo "  ipv4         » IP: allow only v4 addresses"
-	echo "  ipv6         » IP: allow v6 addresses also"
-	echo "  jdk8         » JDK: use v8"
-	echo "  sboot        » run the springboot microservice in current dir"
-	echo "  demoup       » run docker-demo local environment"
-	echo "  demodn       » stop docker-demo local environment"
-	echo "  docrdeldang  » docker: delete dangling images"
-	echo "  docrdelall   » docker: delete all images"
-	echo "  docrclean    » docker: remove all but sonar images (incl dangling)"
-	echo "  sonarstart   » sonar: start the sonar server"
-	echo "  sonarstop    » sonar: stop the sonar server"
-	echo "  fortifyclean » fortify: clean FPR for current dir for current dir"
-	echo "  fortifyscan  » fortify: scan the current dir for current dir"
-	echo "  buildall     » run maven build for all dirs"
-	echo "  reviewall    » run maven build, sonar and fortify for all dirs"
-	echo "  review       » run maven build, sonar and fortify for current dir"
-	echo "  rmtarget     » remove all '**/target/' dirs under current dir"
+	echo "  showaliases  » show this list"
+	echo "Java config:"
+	echo "  ipv4         » allow only v4 addresses"
+	echo "  ipv6         » allow v6 addresses also"
+	echo "Git & Git Hub:"
+	echo "  gitpull      » do a merge-safe pull"
+	echo "Maven operations:"
 	echo "  m2govcloud   » switch maven nexus to gov.cloud configuration"
 	echo "  m2evss       » switch maven nexus to EVSS configuration"
+	echo "  rmtarget     » remove all '**/target/' dirs under current dir"
+	echo "  versions     » run the Versions developer tool"
+	echo "Sonar operations:"
+	echo "  sonarstart   » start the sonar server"
+	echo "  sonarstop    » stop the sonar server"
+	echo "  sonarclean   » clean out sonar history"
+	echo "Fortify operations:"
+	echo "  fortifyclean » clean FPR for current dir for current dir"
+	echo "  fortifyscan  » scan the current dir for current dir"
+	echo "Docker generic operations:"
+	echo "  docrclean    » remove all but sonar images (incl dangling)"
+	echo "  docrdelall   » delete all images"
+	echo "  docrdeldang  » delete dangling images"
+	echo "Ascent helpers"
+	echo "  docrbuild    » build the docker image in the current project"
+	echo "  docrcup      » run docker-demo for the current project directory"
+	echo "  perftest     » run perftest for the current *-perftest project"
+	echo "  review       » run maven build, sonar and fortify for current dir"
+	echo "  sboot        » run the springboot microservice in current dir"
+	echo "  vaultCerts   » get the certs package from vault"
 	echo ""
 }
 
+############################################################
+##### ------------------------------------------------ #####
+#####            SET ENVIRONMENT VARIABLES             #####
+##### ------------------------------------------------ #####
+############################################################
+
+
 ######################################################
-## PREPARATION FOR ENVIRONMENT EXPORTS & ALIASES    ##
+## VARIABLES USED FOR DECLARING ENVIRONMENT PATH    ##
 ######################################################
 
-# java home paths
-java_home_6=$(/usr/libexec/java_home -v 1.6)
-java_home_8=$(/usr/libexec/java_home -v 1.8)
-java_home_custom_path=$(/usr/libexec/java_home -v $java_custom_version)
-#echo "got java homepath execs"
+### java home path on macOS
+java8_home_path=$(/usr/libexec/java_home -v 1.8)
+#echo "got java8_home_path from libexec: $java8_home_path"
 
-# tomcat
+### tomcat
 tomcat_path=/Applications/apache-tomcat-7.0.68/bin
-#echo "got tomcat path"
+#echo "got tomcat_path: $tomcat_path"
 
-# maven
-maven_path_331=/Applications/apache-maven-3.1.1/bin
+### maven
 maven_path_339=/Applications/apache-maven-3.3.9/bin
-maven_custom_path=$maven_path_339
-#echo "got maven path"
+#echo "got maven_path_339: maven_path_339"
 
-# ant
+### ant
 ant_path=/Applications/apache-ant-1.9.6/bin
-#echo "got ant path"
+#echo "got ant_path: $ant_path"
 
-# sonar
-sonar_path_374=/Applications/sonar-3.7.4/bin/macosx-universal-64
+### sonar
 sonar_path_55=/Applications/sonarqube-5.5/bin/macosx-universal-64
-sonar_custom_path=$sonar_path_55
-#echo "got sonar paths"
-
+#echo "got sonar_path_55: $sonar_path_55"
 sonar_scanner_path_26=/Applications/sonar-scanner-2.6/bin
-sonar_scanner_custom_path=$sonar_scanner_path_26
-#echo "got sonar scanner paths"
+#echo "got sonar_scanner_path_26: $sonar_scanner_path_26"
 
+### fortify
 fortify_path_17_10=/Applications/HPE_Security/Fortify_SCA_and_Apps_17.10/bin
+#echo "got fortify_path_17_10: $fortify_path_17_10"
 
-# docker
+### docker
 docker_compose_path=/usr/local/bin
-#echo "got docker_compose path"
-
-# IP Stack Version preference (default v4)
-ip4_stack='-Djava.net.preferIPv4Stack=true'
-ip6_stack='-Djava.net.preferIPv4Stack=false'
-ip_stack=$ip4_stack
-#echo "got ip_stacks"
-
-# set variables that can be used as aliases
-setip4='echo "Preferring IP v4 ...";ip_stack=$ip4_stack;export JAVA_OPTS=$ip_stack;'
-setip6='echo "Preferring IP v6 ...";ip_stack=$ip6_stack;export JAVA_OPTS=$ip_stack;'
-#echo "got ip_stack aliases"
-
-path_orig=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin
-# set path variables for chosen JDK
-set_path8="$fortify_path_17_10:$path_orig:$java_home_8:$docker_compose_path:$path_orig:$tomcat_path:$maven_path_339:$ant_path:$sonar_path_55:$sonar_scanner_path_26"
-#echo "asssembled path env"
-
-# set variables that can be used as aliases
-setjdk8="echo \"Enabling Java 8 ...\";export JAVA_OPTS=$ip_stack;export JAVA_HOME=$java_home_8;export PATH=$set_path8;java -version"
-#echo "got jdk aliases"
+#echo "got docker_compose_path: $docker_compose_path"
 
 ######################################################
-## EXPORT VARIABLES TO THE ENVIRONMENT              ##
+## SET THE ENVIRONMENT PATH (values declared above) ##
 ######################################################
 
-# Java Version preference (devault v8)
-# - IPvX stack, java home, maven, docker compose, sonar, ant, tomcat
-export path_orig=$path_orig
-#echo "exported original path"
+### save the original bash path
+if [ "$PATH_ORIGINAL" == "" ]; then
+	PATH_ORIGINAL=$(echo "$PATH")
+fi
+#echo "saved PATH_ORIGINAL to: $PATH_ORiGINAL"
 
-# set java_home and path based on selected java_use value
-setJavaUse="\$set$java_use"
-#echo "got java version"
-eval eval "$setJavaUse"
-#echo "ran evaluation of $setJavaUse"
+### set the path
+export PATH="$fortify_path_17_10:$PATH_ORIGINAL:$java8_home_path:$docker_compose_path:$tomcat_path:$maven_path_339:$ant_path:$sonar_path_55:$sonar_scanner_path_26"
+#echo "exported PATH to: $PATH"
 
-# git
-export GIT_ACCESS_TOKEN=REPLACE_ME_WITH_YOUR_GITHUB_TOKEN
+######################################################
+## SET UP THE JAVA ENVIRONMENT                      ##
+######################################################
+
+### make asliases to set the prefered IP stack (v4 or v6) in java
+alias ipv4='echo "Preferring IP v4";export JAVA_OPTS="-Djava.net.preferIPv4Stack=true";'
+alias ipv6='echo "Preferring IP v6";export JAVA_OPTS="-Djava.net.preferIPv4Stack=false";'
+#echo "made IPv aliases"
+
+### by default, prefere IPv4
+ipv4
+
+### export java home
+export JAVA_HOME=$java8_home_path;
+#echo "exported JAVA_HOME to: $java8_home_path"
+
+######################################################
+## SET UP THE GIT AND GIT_HUB ENVIRONMENTS          ##
+######################################################
+
+### export GIT_ACCESS_TOKEN=MY_GIT_HUB_TOKEN
+export GIT_ACCESS_TOKEN=a68f06a11c647ab82398ca4cbd1a1f457aa4bb21
+#echo "exported GIT_ACCESS_TOKEN to: $GIT_ACCESS_TOKEN"
+
+# export git home directory
 export GIT_HOME=$HOME/git
-#echo "exported GIT vars"
+#echo "exported GIT_HOME to: $GIT_HOME"
 
-# export all exports through launchctl to make available to GUI apps (like eclipse)
+######################################################
+## SET HOME ENVIRONENTS FOR OTHER TOOLS             ##
+######################################################
+
+### export ANT_HOME (ant_path minus the /bin at the end)
+export ANT_HOME=${ant_path%/bin}
+#echo "exported ANT_HOME to: $ANT_HOME"
+
+### export MAVEN_HOME (maven_path_339 minus the /bin at the end)
+export MAVEN_HOME=${maven_path_339%/bin}
+#echo "exported ANT_HOME to: $ANT_HOME"
+
+######################################################
+## MAKE BASH EXPORTS AVAILABLE TO OTHER APPS        ##
+######################################################
+
+### set app environment PATH for eclipse, etc
 launchctl setenv PATH $PATH
-#launchctl setenv ANT_HOME $ant_path
+#echo "launchctl setenv PATH $PATH"
+
+### set app environment JAVA_HOME for eclipse, etc
+launchctl setenv JAVA_HOME $java8_home_path
+#echo "launchctl setenv JAVA_HOME $java8_home_path"
+
+### set app environment GIT_ACCESS_TOKEN for eclipse, etc
 launchctl setenv GIT_ACCESS_TOKEN $GIT_ACCESS_TOKEN
+#echo "launchctl setenv GIT_ACCESS_TOKEN $GIT_ACCESS_TOKEN"
+
+### set app environment GIT_HOME for eclipse, etc
 launchctl setenv GIT_HOME $GIT_HOME
-#echo "sent path and GIT vars to launchctl"
+#echo "launchctl setenv GIT_HOME $GIT_HOME"
+
+### set app environment ANT_HOME for eclipse, etc
+launchctl setenv ANT_HOME $ANT_HOME
+#echo "launchctl setenv ANT_HOME $ANT_HOME"
+
+### set app environment MAVEN_HOME for eclipse, etc
+launchctl setenv MAVEN_HOME $MAVEN_HOME
+#echo "launchctl setenv MAVEN_HOME $MAVEN_HOME"
+
+
+############################################################
+##### ------------------------------------------------ #####
+#####    SET ALIASES FOR EASY RECALL AND EXECUTION     #####
+##### ------------------------------------------------ #####
+############################################################
 
 ######################################################
-## SET ALIASES FOR EASY RECALL AND EXECUTION        ##
+## GIT OPERATIONS                                   ##
 ######################################################
 
-# aliases for setting the ip stack
-alias ipv4="$setip4"
-alias ipv6="$setip6"
-#echo "created ipstack aliases"
-
-# aliases for selecting jdk/path
-alias jdk6="$setjdk6"
-alias jdk8="$setjdk8"
-alias jdk="$setjdk"
-#echo "created jdk aliases"
-
+### merge-safe pull
 function gitpull() {
 	echo "▶︎ git merge HEAD --no-commit"
 	git merge HEAD --no-commit
@@ -151,7 +184,152 @@ function gitpull() {
 	fi
 }
 
-function vaultup() {
+######################################################
+## MAVEN-SPECIFIC OPERATIONS                        ##
+######################################################
+
+### delete target directories in all projects under current directory
+function rmtarget() {
+	echo "▶︎ rm -rf \$(find . -name \'target\' -type d -maxdepth 4 | sed \'s:\.\/::g\')"
+	rm -rf $(find . -name 'target' -type d -maxdepth 4 | sed 's:\.\/::g')
+}
+
+### set maven/nexus settings.xml to evss settings
+function m2evss() {
+	if [ -d "$HOME/.m2/_m2-repo-settings" ]; then
+		if [ -f "$HOME/.m2/_m2-repo-settings/evss-settings.xml" ]; then
+			cp "$HOME/.m2/_m2-repo-settings/evss-settings.xml" "$HOME/.m2/settings.xml"
+			echo "** Remember to start evss vpn!"
+		else
+			echo "File \"$HOME/.m2/_m2-repo-settings/evss-settings.xml\" does not exist."
+		fi
+	else
+		echo "Directory \"$HOME/.m2/_m2-repo-settings\" does not exist."
+	fi
+}
+
+### set maven/nexus settings.xml to gov.cloud settings
+function m2govcloud() {
+	if [ -d "$HOME/.m2/_m2-repo-settings/" ]; then
+		if [ -f "$HOME/.m2/_m2-repo-settings/govcloud-settings.xml" ]; then
+			cp "$HOME/.m2/_m2-repo-settings/govcloud-settings.xml" "$HOME/.m2/settings.xml"
+			echo "** Remember to start govcloud vpn!"
+		else
+			echo "File \"$HOME/.m2/_m2-repo-settings/govcloud-settings.xml\" does not exist."
+		fi
+	else
+		echo "Directory \"~/.m2/_m2-repo-settings/\" does not exist."
+	fi
+}
+
+### print a report of versioning issues across all projects
+function versions() {
+	TMP="`pwd`"
+	echo "▶︎ cd $GIT_HOME/ascent-developer"
+	echo "▶︎ java -cp target/ascent-developer.jar gov.va.ascent.tools.Versions ."
+	cd $GIT_HOME/ascent-developer
+	java -cp target/ascent-developer.jar gov.va.ascent.tools.Versions .
+	cd "$TMP"
+}
+
+######################################################
+## SONAR OPERATIONS                                 ##
+######################################################
+
+### start sonar docker container
+function sonarstart() {
+	TMP="`pwd`"
+	echo "▶︎ cd ~/git/ascent-platform"
+	cd ~/git/ascent-platform
+	echo "▶︎ docker-compose -f ascent-platform-docker-build/containers/sonarqube/docker-compose.yml up --build -d"
+	docker-compose -f ascent-platform-docker-build/containers/sonarqube/docker-compose.yml up --build -d
+
+	n=0
+	printf "▶︎ Waiting for sonar to become available "
+	printf "."
+	while [[ $n -lt 20 ]]
+	do
+		curl --head --fail "http://localhost:9000" > /dev/null 2>&1
+		curlresp="$?"
+		if [ "$curlresp" -ne "0" ]; then
+			printf "$curlresp."
+			sleep 1 >/dev/null 2>&1
+			n=$((n+1))
+		else
+			printf "$curlresp."
+			break
+		fi
+	done
+	echo "."
+	echo "▶︎ Running sonar containers:"
+	docker ps --filter "name=sonar"
+	#docker ps | grep sonar
+	echo "▶︎ To run analysis: \$ mvn sonar:sonar"
+	cd "$TMP"
+}
+
+### stop sonar docker container
+function sonarstop() {
+	echo "▶︎ docker stop \$(docker ps --filter \"name=sonar\" --format \"⎨⎨.ID⎬⎬\")"
+	docker stop $(docker ps --filter "name=sonar" --format "{{.ID}}")
+	echo "▶︎ Sonar stopped"
+}
+
+### remove all sonar history
+function sonarclean() {
+	echo "Still figuring this out. This command currently does nothing."
+}
+
+######################################################
+## FORTIFY OPERATIONS                                 ##
+######################################################
+
+### remove fortify history for current project
+alias fortifyclean='
+echo "▶︎ mvn initialize sca:clean sca:translate";
+mvn initialize sca:clean sca:translate;'
+
+### fortify scan for current project
+### this is the manual way >> fortifyscan='mvn initialize sca:scan'
+alias fortifyscan='
+echo "▶︎ mvn antrun:run@fortify-scan -N";
+mvn antrun:run@fortify-scan -N;'
+
+# merge generated to main: fprutility -merge -project fortify-audits.fpr -source <prpojectname>/target/fortify/<filename>.fpr> -f foritfy-audits.fpr
+# merge main to generated: fprutility -merge -project <prpojectname>/target/fortify/<filename>.fpr> -source fortify-audits.fpr -f <prpojectname>/target/fortify/<filename>.fpr>
+
+#######################################################
+## GENERIC DOCKER OPERATIONS (not Ascent operations) ##
+#######################################################
+
+### delete dangling / orphaned images
+alias docrdeldang='
+echo "▶︎ docker rmi \$(docker images -f dangling=true -q)";
+docker rmi $(docker images -f dangling=true -q);'
+
+### delete all docker images
+function docrdelall() {
+	echo "▶︎ docker stop \$(docker ps -q)"
+	docker stop $(docker ps -q)
+	echo "▶︎ docker rmi \$(docker images -a -q)"
+	docker rmi -f $(docker images -a -q);
+}
+
+### delete all docker images except sonar and alpine
+alias docrclean='
+TMP_KEEP="sonarqube|alpine|postgres";
+echo "▶︎ docker rmi -f \$(docker images -a --format \"{{.ID}}:\\t{{.Repository}}\" | grep -Eiv \"sonarqube|alpine|postgres\" | cut -f 1 -d \":\")";
+docker rmi -f $(docker images -a --format "{{.ID}}:\t{{.Repository}}" | grep -Eiv "sonarqube|alpine|postgres" | cut -f 1 -d ":");
+docker rmi -f $(docker images -f dangling=true -q);'
+
+
+
+######################################################
+## ASCENT local-int HELPERS                         ##
+######################################################
+
+### get vault certificates into a p12 file
+function vaultCerts() {
 	TMP=`pwd`
 	if [ -z "~/temp/" ]; then
 		echo "▶︎ mkdir ~/temp"
@@ -185,11 +363,12 @@ function vaultup() {
 	cd "$TMP"
 }
 
+### build the docker image in the current project
 function docrbuild() {
 	gitpull
 	TMPDIR=`echo "$(pwd)"|grep -o '[^/]\+$'`
 	if [ ! -f pom.xml ]; then
-		read -p "▶︎ skipping maven build. Press [Enter] to continue, [Ctrl+C] to abort. "
+		read -p "▶︎ Not a maven project. Press [Enter] to continue, [Ctrl+C] to abort. "
 	else
 		echo "▶︎ mvn clean install -Ddockerfile.skip=true"
 		mvn clean install -Ddockerfile.skip=true
@@ -205,19 +384,7 @@ function docrbuild() {
 	fi
 }
 
-# run individual docker container using docker localint
-function docrrun() {
-	TMP="`pwd`"
-	cd docker-compose_local/
-	if [ "$?" -eq "0" ]; then
-		docker-compose up
-	else
-		echo "No docker-compose_local/ directory."
-	fi
-	cd "$TMP"
-}
-
-# in service dir; whatever local docker containers, start them
+### in project dir; whatever local docker containers, start them
 function docrcup() {
 	TMPDIR=`echo "$(pwd)"|grep -o '[^/]\+$'`
 	TMPFILE="$TMPDIR.dockercompose.log"
@@ -227,129 +394,14 @@ function docrcup() {
 	echo "▶︎ Docker Compose environment is starting. Press [Ctrl+C] to stop..."
 	docker-compose up > "$TMPFILE" 2>&1
 	echo " "
-	echo "▶︎ Docker Compose environment is shutting down, please wiat ..."
+	echo "▶︎ Docker Compose environment is shutting down, please wait ..."
 	docker-compose down > "$TMPFILE" 2>&1
 	read -p "▶︎ Press [Enter] to remove $TMPFILE, or [Ctrl+C] to leave the log file in place."
 	echo "rm $TMPFILE"
 	rm "$TMPFILE"
 }
-# delete dangling / orphaned images
-alias docrdeldang='
-echo "▶︎ docker rmi \$(docker images -f dangling=true -q)";
-docker rmi $(docker images -f dangling=true -q);'
-# delete all docker images
-alias docrdelall='
-echo "▶︎ docker rmi \$(docker images -a -q)";
-docker rmi $(docker images -a -q);'
-# delete all docker images but sonar and etc
-alias docrclean='
-TMP_DEL="ascent\|rabbitmq\|localstack\|fluentd\|consul\|vault\|redis\|jenkins\|kibana\|elasticsearch";
-TMP_KEEP="sonarqube|alpine";
-echo "▶︎ docker images -a --format \"{{.ID}}:\t{{.Repository}}\" | grep "$TMP_DEL" | grep -Eiv \"$TMP_KEEP\" |cut -f 1 -d \":\"";
-docker rmi -f $(docker images -a --format "{{.ID}}:\t{{.Repository}}" | grep "$TMP_DEL" | grep -Eiv "$TMP_KEEP" |cut -f 1 -d ":");
-docker rmi -f $(docker images -f dangling=true -q);'
 
-function rmtarget() {
-	echo "▶︎ rm -rf \$(find . -name \'target\' -type d -maxdepth 4 | sed \'s:\.\/::g\')"
-	rm -rf $(find . -name 'target' -type d -maxdepth 4 | sed 's:\.\/::g')
-}
-
-# bring up docker-demo environment
-function demoup() {
-	TMP="`pwd`"
-	echo "▶︎ ~/git/ascent-platform/ascent-platform-docker-build/run-docker/run-docker start all"
-	cd ~/git/ascent-platform/ascent-platform-docker-build/run-docker
-	./run-docker start all --build
-	echo "▶︎ Running containers..."
-	echo "▶︎ docker ps"
-	docker ps
-	cd "$TMP"
-}
-# bring down docker-demo environment
-function demodn() {
-	TMP="`pwd`"
-	echo "▶︎ ~/git/ascent-platform/ascent-platform-docker-build/run-docker/run-docker stop all"
-	cd ~/git/ascent-platform/ascent-platform-docker-build/run-docker
-	./run-docker stop all
-	echo "▶︎ docker rmi \$(docker images -f dangling=true -q)"
-	docker rmi $(docker images -f dangling=true -q)
-	echo "▶︎ Running containers..."
-	echo "▶︎ docker ps -a"
-	docker ps -a
-	cd "$TMP"
-}
-
-# start sonar docker container
-function sonarstart() {
-	TMP="`pwd`"
-	#	echo "▶︎ ~/git/ascent-platform/ascent-platform-docker-build/run-docker/run-docker start sonarqube"
-	#	cd ~/git/ascent-platform/ascent-platform-docker-build/run-docker
-	#	./run-docker start sonarqube
-	echo "▶︎ cd ~/git/ascent-platform/ascent-platform-docker-build/run-docker"
-	cd ~/git/ascent-platform/ascent-platform-docker-build/run-docker
-	echo "▶︎ docker-compose -f ../containers/sonarqube/docker-compose_local/docker-compose.yml up --build -d"
-	docker-compose -f ../containers/sonarqube/docker-compose_local/docker-compose.yml up --build -d
-	printf "▶︎ Waiting for sonar to become available "
-	n=0
-	while [[ $n -lt 20 ]]
-	do
-		printf "."
-		# if curl --output /dev/null --silent --head --fail "http://localhost:9000"; then echo "URL exists: $url"; else echo "URL does not exist: $url"; fi
-		curl --head --fail "http://localhost:9000" > /dev/null 2>&1
-		if [ "$?" -ne "0" ]; then
-			sleep 1 >/dev/null 2>&1
-			n=$((n+1))
-		elif [[ $n -lt 3 ]]; then
-			n=20
-		else
-			sleep 2 >/dev/null 2>&1
-			printf "."
-			sleep 2 >/dev/null 2>&1
-			printf "."
-			n=20
-		fi
-	done
-	sleep 1 >/dev/null 2>&1
-	echo "."
-	sleep 1 >/dev/null 2>&1
-	echo "▶︎ Running containers:"
-	docker ps -a | grep sonar
-	echo "▶︎ To run analysis: $ mvn sonar:sonar"
-	cd "$TMP"
-}
-# stop sonar docker container
-function sonarstop() {
-	TMP="`pwd`"
-	echo "▶︎ ~/git/ascent-platform/ascent-platform-docker-build/run-docker/run-docker stop sonarqube"
-	cd ~/git/ascent-platform/ascent-platform-docker-build/run-docker
-	./run-docker stop sonarqube
-	echo "▶︎ Running containers..."
-	docker ps -a | grep sonar
-	cd "$TMP"
-}
-# remove all sonar history
-function sonarclean() {
-	TMP="`pwd`"
-	echo "▶︎ ~/git/ascent-platform/ascent-platform-docker-build/run-docker/run-docker stop sonarqube -clean";
-	cd ~/git/ascent-platform/ascent-platform-docker-build/run-docker;
-	./run-docker stop sonarqube -clean;
-	cd "$TMP"
-}
-#echo "created sonar aliases"
-
-# remove fortify history for current project
-alias fortifyclean='
-echo "▶︎ mvn initialize sca:clean sca:translate";
-mvn initialize sca:clean sca:translate;'
-# fortify scan for current project
-# this is the manual way>> alias fortifyscan='mvn initialize sca:scan'
-alias fortifyscan='
-echo "▶︎ mvn antrun:run@fortify-scan -N";
-mvn antrun:run@fortify-scan -N;'
-# merge generated to main: fprutility -merge -project fortify-audits.fpr -source <prpojectname>/target/fortify/<filename>.fpr> -f foritfy-audits.fpr
-# merge main to generated: fprutility -merge -project <prpojectname>/target/fortify/<filename>.fpr> -source fortify-audits.fpr -f <prpojectname>/target/fortify/<filename>.fpr>
-
-# run a performance test
+### run a performance test
 function perftest() {
 	if [ "`pwd | grep perftest`" == "" ]; then
 		echo "Please change to a *-perftest directory"
@@ -360,7 +412,7 @@ function perftest() {
 	fi
 }
 
-# maven build, sonar scan, fortify scan for current project
+### maven build, sonar scan, fortify scan for current project
 function review() {
 	gitpull
 	if [ "$?" -eq "0" ]; then
@@ -373,6 +425,9 @@ function review() {
 			mvn sonar:sonar
 			if [ "$?" -eq "0" ]; then
 				fortifyscan
+				if [ "$?" -eq "0" ]; then
+					echo -e "\n☠️💀☠️  error: $? - review aborted ☠️💀☠️\n"
+				fi
 			else
 				echo -e "\n☠️💀☠️  error: $? - review aborted ☠️💀☠️\n"
 			fi
@@ -384,25 +439,7 @@ function review() {
 	fi
 }
 
-# run ~/git/maven-build-all.sh with default params
-function buildall() {
-	TMP="`pwd`"
-	echo "▶︎ ~/git/maven-build-all.sh"
-	cd ~/git
-	./maven-build-all.sh
-	cd "$TMP"
-}
-
-# run ~/git/maven-build-all.sh -sf
-function reviewall() {
-	TMP="`pwd`"
-	echo "▶︎ ~/git/maven-build-all.sh -sf"
-	cd ~/git
-	./maven-build-all.sh -sf
-	cd "$TMP"
-}
-
-# run springboot app as if from STS
+### run springboot app as if from STS
 function sboot() {
 	TMPDIR=`echo "$(pwd)"|grep -o '[^/]\+$'`
 	TMPFILE="$TMPDIR.springboot.log"
@@ -418,39 +455,18 @@ function sboot() {
 	rm "$TMPFILE"
 }
 
-# set maven/nexus settings.xml to evss settings
-function m2evss() {
-	if [ -d "$HOME/.m2/_m2-repo-settings" ]; then
-		if [ -f "$HOME/.m2/_m2-repo-settings/evss-settings.xml" ]; then
-			cp "$HOME/.m2/_m2-repo-settings/evss-settings.xml" "$HOME/.m2/settings.xml"
-			echo "** Remember to start evss vpn!"
-		else
-			echo "File \"$HOME/.m2/_m2-repo-settings/evss-settings.xml\" does not exist."
-		fi
-	else
-		echo "Directory \"$HOME/.m2/_m2-repo-settings\" does not exist."
-	fi
-}
+############################################################
+##### ------------------------------------------------ #####
+#####              ACTUALLY RUN SOMETHING              #####
+##### ------------------------------------------------ #####
+############################################################
 
-# set maven/nexus settings.xml to gov.cloud settings
-function m2govcloud() {
-	if [ -d "$HOME/.m2/_m2-repo-settings/" ]; then
-		if [ -f "$HOME/.m2/_m2-repo-settings/govcloud-settings.xml" ]; then
-			cp "$HOME/.m2/_m2-repo-settings/govcloud-settings.xml" "$HOME/.m2/settings.xml"
-			echo "** Remember to start govcloud vpn!"
-		else
-			echo "File \"$HOME/.m2/_m2-repo-settings/govcloud-settings.xml\" does not exist."
-		fi
-	else
-		echo "Directory \"~/.m2/_m2-repo-settings/\" does not exist."
-	fi
-}
-
-#showaliases
-set | grep \ \(\)
-
-##BASH_ENV="~/.bash_profile"
+### run bashrc if it exists
 if [ -f ~/.bashrc  ]; then
 	. ~/.bashrc
 	#  echo "sourced baschrc"
 fi
+
+### show aliases
+#set | grep \ \(\)
+showaliases
