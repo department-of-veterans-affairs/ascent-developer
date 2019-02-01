@@ -2,3 +2,6 @@
 /dependency-reduced-pom.xml
 /versionsReport.txt
 /versions.txt
+/.settings/
+/.project
+/.classpath
