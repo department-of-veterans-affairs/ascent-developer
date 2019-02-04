@@ -5,6 +5,7 @@
 #set -x
 ### ----------------------------------- ###
 
+### show a categorized list of available aliases/functions
 function showaliases() {
 	echo ""
 	echo "Available aliases:"
@@ -17,6 +18,8 @@ function showaliases() {
 	echo "Maven operations:"
 	echo "  m2govcloud   » switch maven nexus to gov.cloud configuration"
 	echo "  m2evss       » switch maven nexus to EVSS configuration"
+	echo "  m2clean      » delete nexus-provided artifacts from ~/.m2/repository"
+	echo "                 except for: com/hpe**"
 	echo "  rmtarget     » remove all '**/target/' dirs under current dir"
 	echo "  versions     » run the Versions developer tool"
 	echo "Sonar operations:"
@@ -192,6 +195,17 @@ function gitpull() {
 function rmtarget() {
 	echo "▶︎ rm -rf \$(find . -name \'target\' -type d -maxdepth 4 | sed \'s:\.\/::g\')"
 	rm -rf $(find . -name 'target' -type d -maxdepth 4 | sed 's:\.\/::g')
+}
+
+### delete all directories except those identified as not coming from nexus
+function m2clean() {
+	TMP="`pwd`"
+	### run the find-and-delete command
+	echo "▶︎ cd ~/.m2/repository"
+	echo "▶︎ rm -rf \$(find . -d -type d -not -path \"./com\" -not -path \"./com/hpe*\")"
+	cd ~/.m2/repository
+	rm -rf $(find . -d -type d -not -path "./com" -not -path "./com/hpe*")
+	cd "$TMP"
 }
 
 ### set maven/nexus settings.xml to evss settings
